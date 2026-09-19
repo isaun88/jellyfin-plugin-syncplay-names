@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head><title>SyncPlay Names</title></head>
+<body>
+<div id="syncPlayNamesPage" data-role="page" class="page type-interior pluginConfigurationPage"
+     data-require="emby-input,emby-button,emby-checkbox">
+  <div data-role="content"><div class="content-primary">
+    <form id="syncPlayNamesForm">
+      <h2>SyncPlay Names</h2>
+      <p>Show who paused, resumed, seeked, or reported buffering in the same SyncPlay party.</p>
+      <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="spnEnabled"><span>Enable notifications</span></label></div>
+      <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="spnActions"><span>Show playback actions</span></label></div>
+      <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="spnBuffer"><span>Show buffering reports</span></label></div>
+      <div class="checkboxContainer"><label><input is="emby-checkbox" type="checkbox" id="spnReady"><span>Show when a buffering member is ready again</span></label></div>
+      <div class="inputContainer"><label class="inputLabel" for="spnDuration">Requested message duration (milliseconds)</label>
+        <input is="emby-input" type="number" id="spnDuration" min="1000" max="10000" step="100" required></div>
+      <div class="inputContainer"><label class="inputLabel" for="spnRepeat">Minimum time between buffering notices per player (seconds)</label>
+        <input is="emby-input" type="number" id="spnRepeat" min="3" max="300" step="1" required></div>
+      <h3>Nickname overrides</h3>
+      <p>Leave this empty to use Jellyfin usernames. Enter the account username and the name everyone should see.</p>
+      <div id="spnNicknames"></div>
+      <button is="emby-button" type="button" id="spnAdd" class="raised"><span>Add nickname</span></button>
+      <p class="fieldDescription">Buffering identifies the reporting player; it does not diagnose their internet connection.
+        Messages appear on clients that support Jellyfin's on-screen messages. Some clients, including Jellyfin Web, choose their own display duration.</p>
+      <button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
+    </form>
+  </div></div>
+  <script>
+    (function () {
+      'use strict';
+      var page = document.querySelector('#syncPlayNamesPage');
+      var pluginId = 'f99bc1b7-7959-4914-9dab-adcc481e8946';
+      var fields = { Enabled: '#spnEnabled', AnnouncePlaybackActions: '#spnActions',
+        AnnounceBuffering: '#spnBuffer', AnnounceRecovery: '#spnReady' };
+      function addNickname(username, nickname) {
+        var row = document.createElement('div');
+        row.className = 'inputContainer spnNicknameRow';
+        var userLabel = document.createElement('label');
+        userLabel.className = 'inputLabel';
+        userLabel.textContent = 'Jellyfin username';
+        var user = document.createElement('input', { is: 'emby-input' });
+        user.setAttribute('is', 'emby-input');
+        user.className = 'emby-input spnUsername';
+        user.type = 'text'; user.maxLength = 64; user.value = username || '';
+        userLabel.appendChild(user);
+        var nameLabel = document.createElement('label');
+        nameLabel.className = 'inputLabel';
+        nameLabel.textContent = 'Display name';
+        var name = document.createElement('input', { is: 'emby-input' });
+        name.setAttribute('is', 'emby-input');
+        name.className = 'emby-input spnNickname';
+        name.type = 'text'; name.maxLength = 64; name.value = nickname || '';
+        nameLabel.appendChild(name);
+        var remove = document.createElement('button');
+        remove.type = 'button'; remove.className = 'raised emby-button'; remove.textContent = 'Remove';
+        remove.addEventListener('click', function () { row.remove(); });
+        row.appendChild(userLabel); row.appendChild(nameLabel); row.appendChild(remove);
+        page.querySelector('#spnNicknames').appendChild(row);
+      }
+      function showError(error) {
+        Dashboard.hideLoadingMsg();
+        Dashboard.alert({ message: error.message || 'Could not save SyncPlay Names settings.' });
+      }
+      page.querySelector('#spnAdd').addEventListener('click', function () { addNickname('', ''); });
+      page.addEventListener('viewshow', function () {
+        Dashboard.showLoadingMsg();
+        ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+          Object.keys(fields).forEach(function (key) { page.querySelector(fields[key]).checked = config[key]; });
+          page.querySelector('#spnDuration').value = config.MessageDurationMs;
+          page.querySelector('#spnRepeat').value = config.BufferRepeatIntervalSeconds;
+          page.querySelector('#spnNicknames').replaceChildren();
+          (config.Nicknames || []).forEach(function (entry) { addNickname(entry.Username, entry.Nickname); });
+          Dashboard.hideLoadingMsg();
+        }).catch(showError);
+      });
+      page.querySelector('#syncPlayNamesForm').addEventListener('submit', function (event) {
+        event.preventDefault();
+        var entries = [], seen = new Set();
+        try {
+          page.querySelectorAll('.spnNicknameRow').forEach(function (row) {
+            var username = row.querySelector('.spnUsername').value.trim();
+            var nickname = row.querySelector('.spnNickname').value.trim();
+            if (!username && !nickname) return;
+            if (!username || !nickname) throw new Error('Fill both fields or remove the nickname row.');
+            if (seen.has(username.toLowerCase())) throw new Error('Use only one nickname for each username.');
+            seen.add(username.toLowerCase()); entries.push({ Username: username, Nickname: nickname });
+          });
+        } catch (error) { showError(error); return; }
+        Dashboard.showLoadingMsg();
+        ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+          Object.keys(fields).forEach(function (key) { config[key] = page.querySelector(fields[key]).checked; });
+          config.MessageDurationMs = Number(page.querySelector('#spnDuration').value);
+          config.BufferRepeatIntervalSeconds = Number(page.querySelector('#spnRepeat').value);
+          config.Nicknames = entries;
+          return ApiClient.updatePluginConfiguration(pluginId, config);
+        }).then(function (result) { Dashboard.processPluginConfigurationUpdateResult(result); }).catch(showError);
+      });
+    }());
+  </script>
+</div>
+</body>
+</html>
