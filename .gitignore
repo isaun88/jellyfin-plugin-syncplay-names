@@ -1,0 +1,7 @@
+.tools/
+.packages/
+.cli/
+**/bin/
+**/obj/
+artifacts/
+.reference/
