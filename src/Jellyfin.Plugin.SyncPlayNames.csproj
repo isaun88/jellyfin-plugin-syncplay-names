@@ -7,6 +7,8 @@
     <RootNamespace>Jellyfin.Plugin.SyncPlayNames</RootNamespace>
     <Version>0.1.0</Version>
     <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <!-- Release packages omit compiler debug paths to keep build-machine details private. -->
+    <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
     <RestorePackagesPath>$(MSBuildThisFileDirectory)..\.packages</RestorePackagesPath>
