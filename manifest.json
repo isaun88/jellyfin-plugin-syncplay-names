@@ -1,0 +1,20 @@
+[
+  {
+    "guid": "f99bc1b7-7959-4914-9dab-adcc481e8946",
+    "name": "SyncPlay Names",
+    "description": "Names the party member whose client paused, resumed, seeked, changed playback, or reported buffering.",
+    "overview": "Named SyncPlay actions using native Jellyfin notifications",
+    "owner": "isaun88",
+    "category": "General",
+    "versions": [
+      {
+        "version": "0.2.0.0",
+        "changelog": "Support Jellyfin 12.2.x alongside 12.1.x; log unsupported integrations as warnings; add a plugin catalog manifest.",
+        "targetAbi": "12.1.0.0",
+        "sourceUrl": "https://github.com/isaun88/jellyfin-plugin-syncplay-names/releases/download/v0.2.0/SyncPlayNames_0.2.0.0.zip",
+        "checksum": "2c78353aefccd375d34bc85fdbe01252",
+        "timestamp": "2026-10-16T02:22:40.2375346Z"
+      }
+    ]
+  }
+]
