@@ -14,23 +14,23 @@ Stop, next/previous item, and starting or changing the playing item are also cov
 
 ## Compatibility
 
-- **Jellyfin Server 12.1.x / .NET 10.** Confirmed working by the maintainer on Jellyfin 12.1.0.
+- **Jellyfin Server 12.1.x and 12.2.x / .NET 10.** Version 0.2.0 adds 12.2 support. Both versions are covered by local compatibility tests; the original release was also confirmed working in a real party on 12.1.0.
 - Intended initially for Jellyfin Web in Chrome and Chromium browsers.
 - Other players must support both SyncPlay and Jellyfin's `DisplayMessage` command. They have not been verified. External-player windows and picture-in-picture may behave differently.
 - Jellyfin Web chooses its own toast duration. Other clients may honor the duration requested in the plugin settings.
 
 ## Install
 
-1. Download `SyncPlayNames_0.1.0.0.zip` from the [latest release](https://github.com/isaun88/jellyfin-plugin-syncplay-names/releases/latest).
-2. Extract the `SyncPlayNames_0.1.0.0` folder into your Jellyfin **plugins directory**. For Docker, this is normally `/config/plugins/` inside the container; use the corresponding directory in your host's configuration volume.
-3. Ensure the Jellyfin process can read the extracted files, then restart Jellyfin.
+1. Download `SyncPlayNames_0.2.0.0.zip` from the [latest release](https://github.com/isaun88/jellyfin-plugin-syncplay-names/releases/latest).
+2. During a maintenance window, stop Jellyfin and create a `SyncPlayNames_0.2.0.0` folder in its **plugins directory**. Extract the four files from the ZIP directly into that folder. For Docker, the plugins directory is normally `/config/plugins/` inside the container; use the corresponding directory in your host's configuration volume.
+3. When upgrading, move the old `SyncPlayNames_0.1.0.0` plugin folder out of the plugins directory. Keep `plugins/configurations/Jellyfin.Plugin.SyncPlayNames.xml` to preserve settings. Ensure the new files are readable by Jellyfin, then start it again. Existing running sessions continue using the old loaded plugin until this maintenance restart.
 4. Open **Dashboard → Plugins → My Plugins → SyncPlay Names** to configure nicknames and notification options.
 
 The installed layout is:
 
 ```text
 plugins/
-└── SyncPlayNames_0.1.0.0/
+└── SyncPlayNames_0.2.0.0/
     ├── Jellyfin.Plugin.SyncPlayNames.dll
     ├── meta.json
     ├── README.md
@@ -42,6 +42,18 @@ Only install the release folder. Do not copy development dependencies or test re
 To uninstall, stop Jellyfin, remove this plugin's directory, then restart. Jellyfin may retain the plugin's ordinary configuration XML so settings survive a later reinstall.
 
 See [Jellyfin's plugin documentation](https://jellyfin.org/docs/general/server/plugins/) for other installation layouts.
+
+### Plugin catalog
+
+The plugin catalog URL is:
+
+```text
+https://raw.githubusercontent.com/isaun88/jellyfin-plugin-syncplay-names/main/manifest.json
+```
+
+Add it under **Dashboard → Plugins → Repositories** to make the plugin's details and catalog installation available. A GitHub repository page or release URL is not a Jellyfin catalog URL. Adding the catalog alone does not activate a new DLL; installation and a maintenance restart are still required for an upgrade.
+
+Without this catalog, a manually installed copy can show “An error occurred while getting the plugin details from the repository.” That warning is separate from the plugin's playback integration.
 
 ## Settings
 
@@ -67,7 +79,7 @@ The plugin wraps Jellyfin's standard SyncPlay service through the plugin service
 
 Delivery uses a bounded background queue. Failed deliveries do not block playback; stale queued messages are discarded and membership is checked again before sending. No browser scripts, web-file modifications, runtime method patches, database changes, polling requests, or external services are required.
 
-Another plugin that replaces the SyncPlay service may conflict. This plugin checks the service implementation when it registers and disables its integration on unsupported server versions. Retest after upgrading beyond Jellyfin 12.1.
+Another plugin that replaces the SyncPlay service may conflict. This plugin checks the service implementation when it registers and disables its integration on unsupported server versions. Retest before enabling Jellyfin versions beyond 12.2. An inactive integration produces a startup warning containing the actual server version; Jellyfin's generic “Active” plugin status does not confirm that the integration registered.
 
 ## Build and test
 
@@ -77,7 +89,9 @@ Requires the **.NET 10 SDK**. From the repository root, on Windows with PowerShe
 .\Build.ps1
 ```
 
-The script builds Release, runs the tests, and creates `artifacts\SyncPlayNames_0.1.0.0.zip`. It prefers a portable SDK at `.tools\dotnet\dotnet.exe`, otherwise uses `dotnet` on PATH. It does not install an SDK or contact a Jellyfin server. NuGet restore downloads the declared build dependencies into the project's `.packages` cache when needed.
+The script builds Release against the 12.1 API baseline, runs the tests, and creates `artifacts\SyncPlayNames_0.2.0.0.zip`, `artifacts\SHA256SUMS.txt`, and a root `manifest.json` with the exact archive checksum. Publish the generated manifest only after its matching release ZIP is available. The ZIP contains the plugin files at its root so Jellyfin's catalog installer can use it.
+
+The script prefers a portable SDK at `.tools\dotnet\dotnet.exe`, otherwise uses `dotnet` on PATH. It does not install an SDK, modify Jellyfin, or contact a running server. NuGet restore downloads the declared build dependencies into the project's `.packages` cache when needed. Release DLLs omit compiler debug paths, and packaging checks for build-machine paths.
 
 For a direct build on other platforms:
 
@@ -86,9 +100,15 @@ dotnet build src/Jellyfin.Plugin.SyncPlayNames.csproj -c Release
 dotnet run --project tests/SyncPlayNames.Tests.csproj -c Release
 ```
 
-The standalone suite contains 25 tests covering attribution, group isolation, repeated actions, ignored/stale reports, recovery, configuration, concurrency, and failure handling. A 26th service-startup test is enabled if `.reference/Emby.Server.Implementations.dll` contains a Jellyfin 12.1 server assembly. That optional test reference is not distributed or installed with the plugin.
+The standalone suite contains 27 tests covering attribution, group isolation, repeated actions, ignored/stale reports, recovery, configuration, concurrency, failure handling, unsupported server versions, and custom SyncPlay services. Two more registration tests are enabled when `.reference/<JellyfinVersion>/Emby.Server.Implementations.dll` contains the matching server assembly. Those optional test references are not distributed or installed with the plugin.
 
-The initial release passed all 26 local tests and built without warnings or errors. Tests exercise Jellyfin's real playback-state classes with simulated sessions and transport; they do not substitute for checking the desired clients during a real party.
+To run against the 12.2 dependency set:
+
+```sh
+dotnet run --project tests/SyncPlayNames.Tests.csproj -c Release -p:JellyfinVersion=12.2.0
+```
+
+The 0.2.0 release passed all 29 tests with both 12.1.0 and 12.2.0 dependencies and their matching server implementations. The unchanged release DLL was also exercised with the 12.2 test runtime. Tests use Jellyfin's real playback-state classes with simulated sessions and transport; they do not substitute for checking the desired clients during a real party.
 
 ## Reporting problems
 

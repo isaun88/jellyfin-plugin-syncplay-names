@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- Keep the released DLL compatible with the oldest supported server.
+         Override this property to run the same tests against newer Jellyfin packages. -->
+    <JellyfinVersion Condition="'$(JellyfinVersion)' == ''">12.1.0</JellyfinVersion>
+  </PropertyGroup>
+</Project>
