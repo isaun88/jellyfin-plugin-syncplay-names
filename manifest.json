@@ -9,11 +9,11 @@
     "versions": [
       {
         "version": "0.2.0.0",
-        "changelog": "Support Jellyfin 12.2.x alongside 12.1.x; log unsupported integrations as warnings; add a plugin catalog manifest.",
+        "changelog": "Remove the server version allowlist; check the native SyncPlay service and injectable session manager instead. Includes plugin catalog support and clear integration warnings.",
         "targetAbi": "12.1.0.0",
         "sourceUrl": "https://github.com/isaun88/jellyfin-plugin-syncplay-names/releases/download/v0.2.0/SyncPlayNames_0.2.0.0.zip",
-        "checksum": "2c78353aefccd375d34bc85fdbe01252",
-        "timestamp": "2026-10-16T02:22:40.2375346Z"
+        "checksum": "7c11da07b36e03c9c0dd5de957a4d9e7",
+        "timestamp": "2026-10-16T02:40:20.5362725Z"
       }
     ]
   }
