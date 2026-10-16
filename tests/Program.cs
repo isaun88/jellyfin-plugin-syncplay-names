@@ -44,10 +44,16 @@ var tests = new (string, Action)[]
         manager.LeaveGroup(other, new LeaveGroupRequest(), default);
         Check(parties.Observe(group.GroupId, other.Id, other.UserName, "Pause", 0, new(), DateTimeOffset.UtcNow) is null);
     }),
-    ("Both supported minor versions accept patch releases", () => {
-        foreach (var version in new[] { new Version(12, 1, 7), new Version(12, 2, 7) })
+    ("Compatible services register regardless of the reported server version", () => {
+        // These are simulated version labels on the referenced server implementation,
+        // not compatibility claims for unreleased Jellyfin binaries.
+        foreach (var version in new[] { new Version(12, 1, 7), new Version(12, 2, 7), new Version(12, 3, 0), new Version(13, 0, 0), new Version(99, 0, 0) })
         {
             var services = new ServiceCollection();
+            services.AddLogging();
+            services.AddSingleton(StubProxy.For<ISessionManager>((method, _) => method.ReturnType == typeof(Task) ? Task.CompletedTask : null));
+            services.AddSingleton(StubProxy.For<IUserManager>((_, _) => null));
+            services.AddSingleton(StubProxy.For<ILibraryManager>((_, _) => null));
             services.AddSingleton<ISyncPlayManager, Emby.Server.Implementations.SyncPlay.SyncPlayManager>();
             var original = services.Single(d => d.ServiceType == typeof(ISyncPlayManager));
             var host = StubProxy.For<IServerApplicationHost>((method, _) => method.Name == "get_ApplicationVersion" ? version : null);
@@ -55,23 +61,32 @@ var tests = new (string, Action)[]
             Check(!services.Contains(original));
             Check(services.Count(d => d.ServiceType == typeof(ISyncPlayManager)) == 1);
             Check(Plugin.IntegrationStatus.StartsWith($"Registered for Jellyfin {version}"));
+            using var provider = services.BuildServiceProvider();
+            Check(provider.GetRequiredService<ISyncPlayManager>() is NamedSyncPlayManager);
+        }
+    }),
+    ("Non-singleton native SyncPlay registrations remain untouched", () => {
+        foreach (var lifetime in new[] { ServiceLifetime.Scoped, ServiceLifetime.Transient })
+        {
+            IServiceCollection services = new ServiceCollection();
+            var original = new ServiceDescriptor(typeof(ISyncPlayManager), typeof(Emby.Server.Implementations.SyncPlay.SyncPlayManager), lifetime);
+            services.Add(original);
+            var host = StubProxy.For<IServerApplicationHost>((method, _) => method.Name == "get_ApplicationVersion" ? new Version(13, 0, 0) : null);
+            new PluginServiceRegistrator().RegisterServices(services, host);
+            Check(services.Single(d => d.ServiceType == typeof(ISyncPlayManager)) == original);
+            Check(Plugin.IntegrationStatus.Contains("requires the standard singleton SyncPlay manager"));
         }
     }),
 #endif
-    ("Unsupported server versions preserve the original service", () => {
-        foreach (var version in new[] { new Version(11, 2, 0), new Version(12, 0, 0), new Version(12, 3, 0), new Version(13, 1, 0) })
-        {
-            var services = new ServiceCollection();
-            services.AddSingleton(StubProxy.For<ISyncPlayManager>((_, _) => null));
-            var original = services.Single(d => d.ServiceType == typeof(ISyncPlayManager));
-            var host = StubProxy.For<IServerApplicationHost>((method, _) => method.Name == "get_ApplicationVersion" ? version : null);
-            new PluginServiceRegistrator().RegisterServices(services, host);
-            Check(services.Single(d => d.ServiceType == typeof(ISyncPlayManager)) == original);
-            Check(Plugin.IntegrationStatus == $"Inactive on Jellyfin {version}: requires Jellyfin 12.1.x or 12.2.x");
-        }
+    ("Missing SyncPlay service produces an inactive status without adding a replacement", () => {
+        var services = new ServiceCollection();
+        var host = StubProxy.For<IServerApplicationHost>((method, _) => method.Name == "get_ApplicationVersion" ? new Version(13, 0, 0) : null);
+        new PluginServiceRegistrator().RegisterServices(services, host);
+        Check(!services.Any(d => d.ServiceType == typeof(ISyncPlayManager)));
+        Check(Plugin.IntegrationStatus.Contains("requires the standard singleton SyncPlay manager"));
     }),
-    ("Supported servers preserve another plugin's SyncPlay service", () => {
-        foreach (var version in new[] { new Version(12, 1, 0), new Version(12, 2, 0) })
+    ("Another plugin's SyncPlay service is preserved regardless of server version", () => {
+        foreach (var version in new[] { new Version(12, 1, 0), new Version(12, 2, 0), new Version(12, 3, 0), new Version(13, 0, 0) })
         {
             var services = new ServiceCollection();
             services.AddSingleton(StubProxy.For<ISyncPlayManager>((_, _) => null));
