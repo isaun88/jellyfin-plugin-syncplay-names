@@ -14,7 +14,7 @@ Stop, next/previous item, and starting or changing the playing item are also cov
 
 ## Compatibility
 
-- **Jellyfin Server 12.1.x and 12.2.x / .NET 10.** Version 0.2.0 adds 12.2 support. Both versions are covered by local compatibility tests; the original release was also confirmed working in a real party on 12.1.0.
+- **Built for the Jellyfin 12.1 API baseline / .NET 10; tested with 12.1.0 and 12.2.0.** The revised 0.2.0 release has no server version allowlist or upper version limit. It checks the native SyncPlay service and its injectable session manager instead. A newer version number alone will not disable the integration. Future API or behavior changes may still require a plugin update; untested server releases are not guaranteed compatible. The original release was also confirmed working in a real party on 12.1.0.
 - Intended initially for Jellyfin Web in Chrome and Chromium browsers.
 - Other players must support both SyncPlay and Jellyfin's `DisplayMessage` command. They have not been verified. External-player windows and picture-in-picture may behave differently.
 - Jellyfin Web chooses its own toast duration. Other clients may honor the duration requested in the plugin settings.
@@ -55,6 +55,8 @@ Add it under **Dashboard → Plugins → Repositories** to make the plugin's det
 
 Without this catalog, a manually installed copy can show “An error occurred while getting the plugin details from the repository.” That warning is separate from the plugin's playback integration.
 
+The catalog's `targetAbi: 12.1.0.0` is the minimum server requirement, not an exact-version restriction or upper limit. If you installed the earlier version-locked 0.2.0 build, download the revised ZIP and replace its plugin files during maintenance. Its plugin version remains 0.2.0.0, so automatic updates may not offer it as a newer version. Use the current `SHA256SUMS.txt` to identify the revised archive.
+
 ## Settings
 
 - Enable or disable all notifications.
@@ -79,7 +81,7 @@ The plugin wraps Jellyfin's standard SyncPlay service through the plugin service
 
 Delivery uses a bounded background queue. Failed deliveries do not block playback; stale queued messages are discarded and membership is checked again before sending. No browser scripts, web-file modifications, runtime method patches, database changes, polling requests, or external services are required.
 
-Another plugin that replaces the SyncPlay service may conflict. This plugin checks the service implementation when it registers and disables its integration on unsupported server versions. Retest before enabling Jellyfin versions beyond 12.2. An inactive integration produces a startup warning containing the actual server version; Jellyfin's generic “Active” plugin status does not confirm that the integration registered.
+Another plugin that replaces the SyncPlay service may conflict. Registration requires the standard singleton `ISyncPlayManager` implementation and a public constructor accepting `ISessionManager`. Missing or incompatible registrations are left untouched and produce a startup warning containing the actual server version. The version number is used for diagnostics only. These service checks cannot prove that every future API or playback behavior is compatible. Jellyfin's generic “Active” plugin status does not confirm that the integration registered.
 
 ## Build and test
 
@@ -100,7 +102,7 @@ dotnet build src/Jellyfin.Plugin.SyncPlayNames.csproj -c Release
 dotnet run --project tests/SyncPlayNames.Tests.csproj -c Release
 ```
 
-The standalone suite contains 27 tests covering attribution, group isolation, repeated actions, ignored/stale reports, recovery, configuration, concurrency, failure handling, unsupported server versions, and custom SyncPlay services. Two more registration tests are enabled when `.reference/<JellyfinVersion>/Emby.Server.Implementations.dll` contains the matching server assembly. Those optional test references are not distributed or installed with the plugin.
+The standalone suite contains 27 tests covering attribution, group isolation, repeated actions, ignored/stale reports, recovery, configuration, concurrency, failure handling, missing services, and custom SyncPlay services. Three more registration tests are enabled when `.reference/<JellyfinVersion>/Emby.Server.Implementations.dll` contains the matching server assembly. They include simulated future version labels and incompatible service lifetimes. Those optional test references are not distributed or installed with the plugin.
 
 To run against the 12.2 dependency set:
 
@@ -108,7 +110,7 @@ To run against the 12.2 dependency set:
 dotnet run --project tests/SyncPlayNames.Tests.csproj -c Release -p:JellyfinVersion=12.2.0
 ```
 
-The 0.2.0 release passed all 29 tests with both 12.1.0 and 12.2.0 dependencies and their matching server implementations. The unchanged release DLL was also exercised with the 12.2 test runtime. Tests use Jellyfin's real playback-state classes with simulated sessions and transport; they do not substitute for checking the desired clients during a real party.
+The revised 0.2.0 release passed all 30 tests with both 12.1.0 and 12.2.0 dependencies and their matching server implementations. The unchanged release DLL was also exercised with the 12.2 test runtime. Simulated version labels verify removal of the allowlist; they do not test future Jellyfin binaries. Tests use Jellyfin's real playback-state classes with simulated sessions and transport; they do not substitute for checking the desired clients during a real party.
 
 ## Reporting problems
 

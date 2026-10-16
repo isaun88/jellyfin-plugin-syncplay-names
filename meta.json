@@ -1,6 +1,6 @@
 {
   "category": "General",
-  "changelog": "Support Jellyfin 12.2.x alongside 12.1.x; log unsupported integrations as warnings; add a plugin catalog manifest.",
+  "changelog": "Remove the server version allowlist; check the native SyncPlay service and injectable session manager instead. Includes plugin catalog support and clear integration warnings.",
   "description": "Names the party member whose client paused, resumed, seeked, changed playback, or reported buffering.",
   "guid": "f99bc1b7-7959-4914-9dab-adcc481e8946",
   "name": "SyncPlay Names",
