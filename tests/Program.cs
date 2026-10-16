@@ -16,7 +16,9 @@ using MediaBrowser.Controller.SyncPlay.Requests;
 var tests = new (string, Action)[]
 {
 #if NATIVE_REFERENCE
-    ("Plugin registration works with the installed server implementation", () => {
+    ("Plugin registration works with the matching Jellyfin server implementation", () => {
+        var version = typeof(ISyncPlayManager).Assembly.GetName().Version!;
+        Check(typeof(Emby.Server.Implementations.SyncPlay.SyncPlayManager).Assembly.GetName().Version == version);
         var sessions = StubProxy.For<ISessionManager>((method, _) => method.ReturnType == typeof(Task) ? Task.CompletedTask : null);
         var services = new ServiceCollection();
         services.AddLogging();
@@ -24,11 +26,12 @@ var tests = new (string, Action)[]
         services.AddSingleton(StubProxy.For<IUserManager>((_, _) => null));
         services.AddSingleton(StubProxy.For<ILibraryManager>((_, _) => null));
         services.AddSingleton<ISyncPlayManager, Emby.Server.Implementations.SyncPlay.SyncPlayManager>();
-        var host = StubProxy.For<IServerApplicationHost>((method, _) => method.Name == "get_ApplicationVersion" ? new Version(12, 1, 0) : null);
+        var host = StubProxy.For<IServerApplicationHost>((method, _) => method.Name == "get_ApplicationVersion" ? version : null);
         new PluginServiceRegistrator().RegisterServices(services, host);
         using var provider = services.BuildServiceProvider();
         var manager = provider.GetRequiredService<ISyncPlayManager>();
         Check(manager is NamedSyncPlayManager);
+        Check(Plugin.IntegrationStatus.StartsWith($"Registered for Jellyfin {version}"));
         var actor = new SessionInfo(sessions, NullLogger.Instance) { Id = "native-actor", UserName = "JAKE", UserId = Guid.NewGuid() };
         var group = manager.NewGroup(actor, new NewGroupRequest("Native startup test"), default);
         var parties = provider.GetRequiredService<PartyTracker>();
@@ -41,7 +44,44 @@ var tests = new (string, Action)[]
         manager.LeaveGroup(other, new LeaveGroupRequest(), default);
         Check(parties.Observe(group.GroupId, other.Id, other.UserName, "Pause", 0, new(), DateTimeOffset.UtcNow) is null);
     }),
+    ("Both supported minor versions accept patch releases", () => {
+        foreach (var version in new[] { new Version(12, 1, 7), new Version(12, 2, 7) })
+        {
+            var services = new ServiceCollection();
+            services.AddSingleton<ISyncPlayManager, Emby.Server.Implementations.SyncPlay.SyncPlayManager>();
+            var original = services.Single(d => d.ServiceType == typeof(ISyncPlayManager));
+            var host = StubProxy.For<IServerApplicationHost>((method, _) => method.Name == "get_ApplicationVersion" ? version : null);
+            new PluginServiceRegistrator().RegisterServices(services, host);
+            Check(!services.Contains(original));
+            Check(services.Count(d => d.ServiceType == typeof(ISyncPlayManager)) == 1);
+            Check(Plugin.IntegrationStatus.StartsWith($"Registered for Jellyfin {version}"));
+        }
+    }),
 #endif
+    ("Unsupported server versions preserve the original service", () => {
+        foreach (var version in new[] { new Version(11, 2, 0), new Version(12, 0, 0), new Version(12, 3, 0), new Version(13, 1, 0) })
+        {
+            var services = new ServiceCollection();
+            services.AddSingleton(StubProxy.For<ISyncPlayManager>((_, _) => null));
+            var original = services.Single(d => d.ServiceType == typeof(ISyncPlayManager));
+            var host = StubProxy.For<IServerApplicationHost>((method, _) => method.Name == "get_ApplicationVersion" ? version : null);
+            new PluginServiceRegistrator().RegisterServices(services, host);
+            Check(services.Single(d => d.ServiceType == typeof(ISyncPlayManager)) == original);
+            Check(Plugin.IntegrationStatus == $"Inactive on Jellyfin {version}: requires Jellyfin 12.1.x or 12.2.x");
+        }
+    }),
+    ("Supported servers preserve another plugin's SyncPlay service", () => {
+        foreach (var version in new[] { new Version(12, 1, 0), new Version(12, 2, 0) })
+        {
+            var services = new ServiceCollection();
+            services.AddSingleton(StubProxy.For<ISyncPlayManager>((_, _) => null));
+            var original = services.Single(d => d.ServiceType == typeof(ISyncPlayManager));
+            var host = StubProxy.For<IServerApplicationHost>((method, _) => method.Name == "get_ApplicationVersion" ? version : null);
+            new PluginServiceRegistrator().RegisterServices(services, host);
+            Check(services.Single(d => d.ServiceType == typeof(ISyncPlayManager)) == original);
+            Check(Plugin.IntegrationStatus.Contains("requires the standard singleton SyncPlay manager"));
+        }
+    }),
     ("Settings page is embedded in the installable DLL", () => {
         Check(typeof(Plugin).Assembly.GetManifestResourceNames().Contains("Jellyfin.Plugin.SyncPlayNames.Configuration.configPage.html"));
     }),
@@ -172,6 +212,7 @@ var tests = new (string, Action)[]
     })
 };
 var failed = 0;
+Console.WriteLine($"Testing Jellyfin {typeof(ISyncPlayManager).Assembly.GetName().Version}");
 foreach (var (name, test) in tests)
 {
     try { test(); Console.WriteLine("PASS " + name); }

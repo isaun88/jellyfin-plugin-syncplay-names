@@ -6,14 +6,15 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>SyncPlayNames.Tests</AssemblyName>
     <RestorePackagesPath>$(MSBuildThisFileDirectory)..\.packages</RestorePackagesPath>
-    <DefineConstants Condition="Exists('..\.reference\Emby.Server.Implementations.dll')">$(DefineConstants);NATIVE_REFERENCE</DefineConstants>
+    <NativeReferencePath>$(MSBuildThisFileDirectory)..\.reference\$(JellyfinVersion)\Emby.Server.Implementations.dll</NativeReferencePath>
+    <DefineConstants Condition="Exists('$(NativeReferencePath)')">$(DefineConstants);NATIVE_REFERENCE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="..\src\Jellyfin.Plugin.SyncPlayNames.csproj" />
-    <PackageReference Include="Jellyfin.Controller" Version="12.1.0" />
-    <Reference Include="Emby.Server.Implementations" Condition="Exists('..\.reference\Emby.Server.Implementations.dll')">
-      <HintPath>..\.reference\Emby.Server.Implementations.dll</HintPath>
+    <PackageReference Include="Jellyfin.Controller" Version="$(JellyfinVersion)" />
+    <Reference Include="Emby.Server.Implementations" Condition="Exists('$(NativeReferencePath)')">
+      <HintPath>$(NativeReferencePath)</HintPath>
     </Reference>
   </ItemGroup>
 </Project>
