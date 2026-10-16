@@ -24,7 +24,10 @@ internal sealed class AnnouncementDispatcher(ISessionManager sessions, PartyTrac
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("SyncPlay Names: {IntegrationStatus}", Plugin.IntegrationStatus);
+        if (Plugin.IntegrationStatus.StartsWith("Inactive", StringComparison.Ordinal))
+            logger.LogWarning("SyncPlay Names: {IntegrationStatus}", Plugin.IntegrationStatus);
+        else
+            logger.LogInformation("SyncPlay Names: {IntegrationStatus}", Plugin.IntegrationStatus);
         try
         {
             await foreach (var announcement in _queue.Reader.ReadAllAsync(stoppingToken).ConfigureAwait(false))

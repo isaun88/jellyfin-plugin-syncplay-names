@@ -5,8 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Jellyfin.Plugin.SyncPlayNames</AssemblyName>
     <RootNamespace>Jellyfin.Plugin.SyncPlayNames</RootNamespace>
-    <Version>0.1.0</Version>
-    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <Version>0.2.0</Version>
+    <AssemblyVersion>0.2.0.0</AssemblyVersion>
     <!-- Release packages omit compiler debug paths to keep build-machine details private. -->
     <DebugType Condition="'$(Configuration)' == 'Release'">none</DebugType>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -15,7 +15,7 @@
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <PackageReference Include="Jellyfin.Controller" Version="12.1.0" PrivateAssets="all" ExcludeAssets="runtime" />
+    <PackageReference Include="Jellyfin.Controller" Version="$(JellyfinVersion)" PrivateAssets="all" ExcludeAssets="runtime" />
     <EmbeddedResource Include="Configuration\configPage.html" Condition="Exists('Configuration\configPage.html')" />
   </ItemGroup>
 </Project>

@@ -17,12 +17,18 @@ public sealed class PluginServiceRegistrator : IPluginServiceRegistrator
         services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<AnnouncementDispatcher>());
         var original = services.LastOrDefault(d => d.ServiceType == typeof(ISyncPlayManager));
         var implementation = original?.ImplementationType;
-        // Do not guess at changed internals or interfere with another replacement plugin.
-        if (applicationHost.ApplicationVersion.Major != 12 || applicationHost.ApplicationVersion.Minor != 1
-            || original?.Lifetime != ServiceLifetime.Singleton
+        var version = applicationHost.ApplicationVersion;
+        // Only enable server versions covered by compatibility tests.
+        if (version.Major != 12 || version.Minor is not (1 or 2))
+        {
+            Plugin.IntegrationStatus = $"Inactive on Jellyfin {version}: requires Jellyfin 12.1.x or 12.2.x";
+            return;
+        }
+        // Do not interfere with another replacement plugin.
+        if (original?.Lifetime != ServiceLifetime.Singleton
             || implementation?.FullName != "Emby.Server.Implementations.SyncPlay.SyncPlayManager")
         {
-            Plugin.IntegrationStatus = "Inactive: requires Jellyfin 12.1 with the standard SyncPlay manager";
+            Plugin.IntegrationStatus = $"Inactive on Jellyfin {version}: requires the standard singleton SyncPlay manager";
             return;
         }
         services.Remove(original!);
@@ -35,6 +41,6 @@ public sealed class PluginServiceRegistrator : IPluginServiceRegistrator
             var inner = (ISyncPlayManager)ActivatorUtilities.CreateInstance(sp, implementation, observedSessions);
             return new NamedSyncPlayManager(inner, parties, sp.GetRequiredService<AnnouncementDispatcher>(), logger);
         });
-        Plugin.IntegrationStatus = "Registered for Jellyfin 12.1; uses native DisplayMessage notifications";
+        Plugin.IntegrationStatus = $"Registered for Jellyfin {version}; uses native DisplayMessage notifications";
     }
 }
